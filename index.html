@@ -1,0 +1,228 @@
+<html>
+    <head>
+        <title>HP-39GII DIMGROB</title>
+    </head>
+    <body>
+        <div class="main-container">
+            <div class="p60 half-container">
+                <h1>HP-39GII DIMGROB</h1>
+                <div class="inner-container">
+                    <input type="file" onchange="readURL(this)">
+                    <select>
+                        <option value ="def">Default</option>
+                    </select>
+                    <img class="temp">
+                    <textarea></textarea>
+                </div>
+            </div>
+            <div class="p40 half-container">
+                <canvas></canvas>
+            </div>
+        </div>
+    </body>
+    <script>
+        var results;
+
+        var canvas = document.querySelector('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        var context = canvas.getContext('2d');
+
+        var textarea = document.querySelector('textarea');
+        var export_filename;
+        var export_varname;
+
+        function readURL(input) {
+            var url = input.value;
+            export_filename = input.files[0].name + '.csv';
+            export_varname = 'data_' + input.files[0].name.replace(/\./g, '_');
+
+            var ext = url.substring(url.lastIndexOf('.') + 1).toLowerCase();
+            if (input.files && input.files[0]&& (ext == "gif" || ext == "png" || ext == "jpeg" || ext == "jpg" || ext == "bmp")) {
+                var reader = new FileReader();
+
+                reader.onload = function (e) {
+                    var image = document.querySelector('img');
+                    image.src = e.target.result;
+                    image.onload = function() {
+                        context.drawImage(image, 0, 0);
+                        var w = this.width;
+                        var h = this.height;
+                        imageData = context.getImageData(0, 0, w, h);
+                        process(imageData, w, h);
+                    }
+                }
+
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function process(imageData, w, h) {
+            output_type = getOutputType();
+
+            var data = imageData.data;
+
+            var after = [];
+
+            for (var i = 0; i < data.length; i += 4) {
+                var r = data[i], g = data[i + 1], b = data[i + 2];
+                var gery = (r + g + b) / 3; 
+                
+                //  --------------- 255
+                //  | white     3
+                //  --------------- 191
+                //  | lighter   2
+                //  --------------- 127
+                //  | darker    1
+                //  --------------- 63
+                //  | black     0
+                //  --------------- 0
+
+                if (gery > 191)         gery = 3;
+                else if (gery > 127)    gery = 2;
+                else if (gery > 63)     gery = 1;
+                else                    gery = 0;
+
+                after.push(gery);
+
+                var after_color;
+
+                switch(gery) {
+                    case 0: after_color = 0;    break;
+                    case 1: after_color = 85;   break;
+                    case 2: after_color = 170;  break;
+                    case 3: after_color = 255;  break;
+                }
+
+                data[i] = data[i + 1] = data[i + 2] = after_color;
+            }
+
+            context.putImageData(imageData, 0, 0);
+
+            var rw = parseInt(w / 16) + (w % 16 == 0 ? 0 : 1);
+
+
+            var result_list = [];
+
+            result_list.push(w);
+            result_list.push(h);
+            for (var y = 0; y < h; ++y) {
+                for (var rx = 0; rx < rw; ++rx) {
+                    var left = rx * 16;
+                    var element = 0;
+                    for (var x = 0; x < 16 && x + left < w; ++x) {
+                        var pixel = after[left + x + y * w];
+                        element = element * 4 + pixel;
+                    }
+                    result_list.push(element);
+                }
+            }
+            
+
+            // results = result_list;
+            textarea.value = generateText(result_list);
+        }
+
+        function generateText(data) {
+            if (!data || data == undefined) return ''
+            var content = "";
+            for (var i = 0; i < data.length; ++i) {
+                content += data[i] + "\r\n";
+            }
+            return content;
+        }
+
+        function getOutputType() {
+            var select = document.querySelector('select');
+            return select.value;
+        }
+    </script>
+
+    <style>
+        body {
+            padding: 0px;
+            margin: 0px;
+            background-color: #666;
+        }
+        .main-container {
+            width: 600px;
+            /*height: 85%;*/
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 10px;
+            box-shadow: 2px 2px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            background-color: white;
+            padding: 20px;
+            /*overflow-y: scroll;*/
+        }
+        .p40 {
+            width: 40%;
+        }
+        .p60 {
+            width: 60%;
+        }
+        .half-container {
+            display: inline-block;
+            float: left;
+        }
+        .inner-container {
+            margin-right: 15px;
+        }
+        img.temp {
+            display: none;
+        }
+        img.calc {
+            margin: 8px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 18px;
+            font-family: 'courier new', 'monospace';
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #333;
+            margin-bottom: 8px;
+            display: block;
+            border-radius: 4px;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #333;
+            margin-bottom: 8px;
+            display: block;
+            border-radius: 4px;
+            font-family: 'courier new', 'monospace';
+        }
+        button {
+            border: 1px solid #333;
+            width: 100%;
+            height: 32px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            background-color: #999;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 8px;
+            font-family: 'courier new', 'monospace';
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
+        canvas {
+            width: 480px;
+            image-rendering: optimizeSpeed;             /* Older versions of FF          */
+            image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+            image-rendering: -webkit-optimize-contrast; /* Safari                        */
+            image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+            image-rendering: pixelated;                 /* Awesome future-browsers       */
+            -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+        }
+    </style>
+</html>
